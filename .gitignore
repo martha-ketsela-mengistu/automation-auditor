@@ -3,3 +3,10 @@ __pycache__/
 .venv
 *.lock   
 .env
+.vscode
+.agent
+.claude
+.cursor
+.antigravity
+.github
+.specify
