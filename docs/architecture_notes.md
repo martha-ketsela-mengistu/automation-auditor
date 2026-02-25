@@ -7,9 +7,9 @@ The Automaton Auditor is a deep multi-agent governance system built on a hierarc
 ```mermaid
 graph TD
     %% Input and Entry
-    StartNode((START)) --> |"User Query + Files"| RepoInvestigator
-    StartNode --> |"User Query + Files"| DocAnalyst
-    StartNode --> |"User Query + Files"| VisionInspector
+    StartNode((START)) --> |"Repo"| RepoInvestigator
+    StartNode --> |"File"| DocAnalyst
+    StartNode --> |"File"| VisionInspector
 
     %% Layer 1: Detective Layer
     subgraph DetectiveLayer ["Layer 1: Detective Layer"]
@@ -19,9 +19,9 @@ graph TD
     end
 
     %% Fan-In to Aggregator
-    RepoInvestigator --> |"Raw Evidence"| Aggregator
-    DocAnalyst --> |"Raw Evidence"| Aggregator
-    VisionInspector --> |"Raw Evidence"| Aggregator
+    RepoInvestigator --> |"Evidence"| Aggregator
+    DocAnalyst --> |"Evidence"| Aggregator
+    VisionInspector --> |"Evidence"| Aggregator
 
     Aggregator["Evidence Aggregator<br/>(JSON Synthesis)"] --> |"Contextual State"| Prosecutor
     Aggregator --> |"Contextual State"| Defense
