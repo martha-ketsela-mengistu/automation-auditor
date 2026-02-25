@@ -6,66 +6,58 @@ The Automaton Auditor is a deep multi-agent governance system built on a hierarc
 
 ```mermaid
 graph TD
-    %% Input
-    Input[("Input: GitHub Repo URL & PDF")] --> StartNode
+    %% Input and Entry
+    StartNode((START)) --> |"Repo"| RepoInvestigator
+    StartNode --> |"File"| DocAnalyst
+    StartNode --> |"File"| VisionInspector
 
-    subgraph DetectiveLayer ["Layer 1: Detective Layer (Forensic Analysis)"]
-        direction LR
-        RepoInvestigator["RepoInvestigator<br/>(AST Parser, Git History)"]
-        DocAnalyst["DocAnalyst<br/>(PDF Ingestion, Cross-Ref)"]
-        VisionInspector["VisionInspector<br/>(Diagram Analysis)"]
+    %% Layer 1: Detective Layer
+    subgraph DetectiveLayer ["Layer 1: Detective Layer"]
+        RepoInvestigator["RepoInvestigator<br/>(AST/Git)"]
+        DocAnalyst["DocAnalyst<br/>(PDF/Docs)"]
+        VisionInspector["VisionInspector<br/>(Diagrams)"]
     end
 
-    subgraph JudicialLayer ["Layer 2: Judicial Layer (Dialectical Bench)"]
-        direction LR
-        Prosecutor["Prosecutor<br/>(Critical Lens)"]
-        Defense["Defense<br/>(Optimistic Lens)"]
-        TechLead["Tech Lead<br/>(Pragmatic Lens)"]
+    %% Fan-In to Aggregator
+    RepoInvestigator --> |"Evidence"| Aggregator
+    DocAnalyst --> |"Evidence"| Aggregator
+    VisionInspector --> |"Evidence"| Aggregator
+
+    Aggregator["Evidence Aggregator<br/>(JSON Synthesis)"] --> |"Contextual State"| Prosecutor
+    Aggregator --> |"Contextual State"| Defense
+    Aggregator --> |"Contextual State"| TechLead
+
+    %% Layer 2: Judicial Layer
+    subgraph JudicialLayer ["Layer 2: Judicial Layer"]
+        Prosecutor["Prosecutor<br/>(Critical)"]
+        Defense["Defense<br/>(Optimistic)"]
+        TechLead["Tech Lead<br/>(Pragmatic)"]
     end
 
-    %% Flow: Start to Detectives
-    StartNode(("Start")) --> RepoInvestigator
-    StartNode --> DocAnalyst
-    StartNode --> VisionInspector
+    %% Fan-In to Chief Justice
+    Prosecutor --> |"Judgment"| ChiefJustice
+    Defense --> |"Judgment"| ChiefJustice
+    TechLead --> |"Judgment"| ChiefJustice
 
-    %% Fan-In from Detectives to Aggregator
-    RepoInvestigator --> EvidenceAggregator["Evidence Aggregator<br/>(JSON Synthesis)"]
-    DocAnalyst --> EvidenceAggregator
-    VisionInspector --> EvidenceAggregator
+    ChiefJustice["Chief Justice Node<br/>(Deterministic)"]
 
-    %% Flow: Aggregator to Judges (Fan-Out)
-    EvidenceAggregator --> Prosecutor
-    EvidenceAggregator --> Defense
-    EvidenceAggregator --> TechLead
-
-    %% Fan-In from Judges to Chief Justice
-    Prosecutor --> ChiefJustice["Chief Justice Node<br/>(Deterministic Logic)"]
-    Defense --> ChiefJustice
-    TechLead --> ChiefJustice
-
-    %% Rules in Chief Justice
-    subgraph JusticeRules ["Chief Justice Synthesis Rules"]
-        direction TB
-        SecurityOverride["Security Override<br/>(Capping Scores)"]
-        FactSupremacy["Fact Supremacy<br/>(Evidence vs. Vibe)"]
-        DissentRequirement["Dissent Summary<br/>(Var > 2)"]
+    %% Rules Context
+    subgraph JusticeRules ["Chief Justice Rules"]
+        SecurityOverride["Security Capping"]
+        FactSupremacy["Evidence > Vibe"]
     end
-    
     ChiefJustice -.- JusticeRules
 
     %% Output
-    ChiefJustice --> FinalReport[("Final Output: Markdown Audit Report")]
+    ChiefJustice --> |"Final Markdown"| EndNode((END))
 
     %% Styling
-    classDef detective fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
-    classDef judicial fill:#fff3e0,stroke:#e65100,stroke-width:2px;
-    classDef synthesis fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
-    classDef rules fill:#fafafa,stroke:#9e9e9e,stroke-dasharray: 5 5;
-    
+    classDef detective fill:#e1f5fe,stroke:#01579b;
+    classDef judicial fill:#fff3e0,stroke:#e65100;
+    classDef synthesis fill:#f3e5f5,stroke:#4a148c;
     class RepoInvestigator,DocAnalyst,VisionInspector detective;
     class Prosecutor,Defense,TechLead judicial;
-    class ChiefJustice synthesis;
-    class JusticeRules,SecurityOverride,FactSupremacy,DissentRequirement rules;
+    class ChiefJustice,Aggregator synthesis;
 ```
 
 ## Key Architectural Principles
