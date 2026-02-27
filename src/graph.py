@@ -1,5 +1,7 @@
 from langgraph.graph import StateGraph, START, END
 from src.state import AgentState
+from src.nodes.detectives import repo_investigator_node, doc_analyst_node, vision_inspector_node
+from src.nodes.aggregators import evidence_aggregator_node
 from src.nodes.judges import prosecutor_node, defense_node, tech_lead_node
 from src.nodes.justice import chief_justice_node
 
