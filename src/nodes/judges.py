@@ -16,7 +16,7 @@ with open(RUBRIC_PATH, "r") as f:
 # llm = ChatOpenAI(model="gpt-4o", temperature=0.7)
 
 llm = ChatOllama(
-    model="llama3.1", 
+    model="deepseek-r1:latest", 
     base_url="http://192.168.1.9:11434", 
     temperature=0
 )
