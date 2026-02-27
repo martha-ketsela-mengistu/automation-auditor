@@ -83,7 +83,7 @@ def chief_justice_node(state: AgentState) -> dict:
             final_score=final_score,
             judge_opinions=ops,
             dissent_summary=dissent,
-            remediation=f"Improve implementation for {c_name} based on Prosecutor's critique."
+            remediation=f"Review the Prosecutor's gaps and Defense's workarounds for {c_name}. Focus on specific implementation markers cited in the evidence."
         )
         final_criteria_results.append(result)
 
