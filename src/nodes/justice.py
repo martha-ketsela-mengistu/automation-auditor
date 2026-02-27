@@ -96,7 +96,34 @@ def chief_justice_node(state: AgentState) -> dict:
         executive_summary=f"Audit completed for {state['repo_url']}. Parallel orchestration and forensic markers were analyzed.",
         overall_score=round(total_score, 2),
         criteria=final_criteria_results,
-        remediation_plan="Review critial dissents and address the lowest scoring dimensions first."
+        remediation_plan="Review critical dissents and address the lowest scoring dimensions first."
     )
+
+    # --- Save Report to audit/AuditReport.md ---
+    os.makedirs("audit", exist_ok=True)
+    report_path = os.path.join("audit", "AuditReport.md")
+    
+    with open(report_path, "w", encoding="utf-8") as md_file:
+        md_file.write(f"# Automaton Auditor: Final Audit Report\n\n")
+        md_file.write(f"**Target Repo:** {report.repo_url}\n")
+        md_file.write(f"**Overall Score:** {report.overall_score}/5.0\n\n")
+        md_file.write(f"## Executive Summary\n{report.executive_summary}\n\n")
+        
+        md_file.write(f"## Dimension Breakdown\n")
+        for res in report.criteria:
+            md_file.write(f"### {res.dimension_name}\n")
+            md_file.write(f"- **Score:** {res.final_score}/5\n")
+            if res.dissent_summary:
+                md_file.write(f"- **Dissent:** {res.dissent_summary}\n")
+            md_file.write(f"- **Remediation:** {res.remediation}\n\n")
+            
+            md_file.write("#### Judicial Opinions\n")
+            for op in res.judge_opinions:
+                md_file.write(f"- **{op.judge}:** (Score: {op.score}) {op.argument}\n")
+            md_file.write("\n")
+            
+        md_file.write(f"## Remediation Plan\n{report.remediation_plan}\n")
+
+    print(f"--- Final report saved to {report_path} ---")
 
     return {"final_report": report}
