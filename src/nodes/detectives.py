@@ -29,42 +29,76 @@ def repo_investigator_node(state: AgentState) -> dict:
                 )
             ]
 
-            # 2. AST Analysis
+            # 2. AST Analysis and Code Sampling
             structure = analyze_code_structure(tmpdir)
             
-            # Verify State Management
+            # Helper to read file safely
+            def get_file_content(path):
+                full_path = os.path.join(tmpdir, path)
+                if os.path.exists(full_path):
+                    with open(full_path, "r", encoding="utf-8") as f:
+                        return f.read()
+                return "File not found."
+
+            # Verify State Management (Deep Evidence)
+            state_code = get_file_content("src/state.py")
             evidences["state_management_rigor"] = [
                 Evidence(
                     goal="Detect Pydantic/TypedDict state with reducers",
-                    found=len(structure["models"]) > 0 or len(structure["typed_dicts"]) > 0,
-                    content=f"Models: {structure['models']}, Reducers: {structure['annotated_reducers']}",
+                    found="AgentState" in state_code,
+                    content=state_code[:2000], # Provide enough context for the judge
                     location="src/state.py",
-                    rationale="Scanned repository for state definitions using AST parsing.",
+                    rationale="Scanned repository and extracted the core state definition for judicial review.",
                     confidence=0.9
                 )
             ]
 
-            # Verify Graph Orchestration
+            # Verify Graph Orchestration (Deep Evidence)
+            graph_code = get_file_content("src/graph.py")
             evidences["graph_orchestration"] = [
                 Evidence(
                     goal="Detect StateGraph and parallel wiring",
-                    found=len(structure["stategraphs"]) > 0,
-                    content=f"Graphs: {structure['stategraphs']}",
+                    found="StateGraph" in graph_code,
+                    content=graph_code[:2000],
                     location="src/graph.py",
-                    rationale="Analyzed code for LangGraph StateGraph instantiation.",
+                    rationale="Extracted graph orchestration logic to verify parallel fan-out/fan-in patterns.",
                     confidence=0.8
                 )
             ]
             
-            # Verify Safe Tool Engineering
-            # (In a real implementation, we'd check if clone_repository logic is sandboxed in the repo itself)
-            evidences["safe_tool_engineering"] = [
+            # Verify Structured Output & Judicial Nuance
+            judges_code = get_file_content("src/nodes/judges.py")
+            evidences["structured_output_enforcement"] = [
                 Evidence(
-                    goal="Check for sandboxed tools",
-                    found=True, # Placeholder for AST check on tool logic
-                    location="src/tools/",
-                    rationale="Forensic check for tempfile and subprocess usage.",
-                    confidence=0.7
+                    goal="Verify .bind_tools() and Pydantic validation",
+                    found=".bind_tools" in judges_code,
+                    content=judges_code[:2000],
+                    location="src/nodes/judges.py",
+                    rationale="Extracted judicial node logic to verify structured output enforcement.",
+                    confidence=0.9
+                )
+            ]
+            evidences["judicial_nuance"] = [
+                Evidence(
+                    goal="Verify distinct Prosecutor, Defense, and TechLead personas",
+                    found=all(p in judges_code for p in ["Prosecutor", "Defense", "TechLead"]),
+                    content=judges_code[2000:4000], # Capture the persona definitions
+                    location="src/nodes/judges.py",
+                    rationale="Extracted judge personas to verify dialectical separation.",
+                    confidence=0.9
+                )
+            ]
+
+            # Verify Chief Justice Engine
+            justice_code = get_file_content("src/nodes/justice.py")
+            evidences["chief_justice_synthesis"] = [
+                Evidence(
+                    goal="Verify deterministic Python rules (Security, Fact Supremacy)",
+                    found="min(avg_score, 3.0)" in justice_code and "avg_score -= 0.5" in justice_code,
+                    content=justice_code[:2000],
+                    location="src/nodes/justice.py",
+                    rationale="Extracted synthesis logic to verify deterministic governance rules.",
+                    confidence=0.9
                 )
             ]
         else:
