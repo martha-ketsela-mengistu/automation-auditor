@@ -31,7 +31,14 @@ def get_judicial_opinion(
     
     prompt = ChatPromptTemplate.from_messages([
         ("system", f"{judge_persona}\n\n"
+                   "SCORING SCALE (Stricly enforce this):\n"
+                   "5 = EXCELLENT: Fully meets all success patterns with robust implementation.\n"
+                   "4 = GOOD: Meets core requirements with minor missing polish.\n"
+                   "3 = FAIR: Partially meets requirements but has significant gaps.\n"
+                   "2 = POOR: Minimal effort, mostly matches failure patterns.\n"
+                   "1 = CRITICAL FAILURE: No evidence found or matches the failure pattern completely.\n\n"
                    "You are an expert auditor. You MUST use the 'JudicialOpinion' tool to provide your evaluation. "
+                   "Examine the 'content' field of the evidence carefully for structural proof (e.g. parallel branches, reducers). "
                    "Do not provide a text response; ONLY use the tool."),
         ("human", "Rubric Criterion: {criterion_name}\n"
                   "Success Pattern: {success_pattern}\n"
