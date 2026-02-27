@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import argparse
 import sys
 from src.graph import audit_graph
@@ -53,6 +56,24 @@ def main():
                 print(f"    Rationale: {evidence.rationale}")
                 if evidence.location:
                     print(f"    Source: {evidence.location}")
+
+        # Final Judicial Verdict
+        report = final_state.get("final_report")
+        if report:
+            print("\n" + "="*40)
+            print("         FINAL JUDICIAL VERDICT         ")
+            print("="*40)
+            print(f"OVERALL SCORE: {report.overall_score}/5.0")
+            print(f"EXECUTIVE SUMMARY: {report.executive_summary}")
+            print("\nDIMENSION BREAKDOWN:")
+            for crit in report.criteria:
+                print(f"- {crit.dimension_name}: {crit.final_score}/5")
+                if crit.dissent_summary:
+                    print(f"  ⚠️ {crit.dissent_summary}")
+            
+            print("\nREMEDIATION PLAN:")
+            print(report.remediation_plan)
+            print("="*40)
 
         print("\n--- Audit Swarm Execution Finished ---")
 

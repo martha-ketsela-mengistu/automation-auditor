@@ -11,14 +11,9 @@ RUBRIC_PATH = os.path.join(os.getcwd(), "rubric.json")
 with open(RUBRIC_PATH, "r") as f:
     RUBRIC = json.load(f)
 
-# Initialize LLM (assuming OPENAI_API_KEY is in environment)
-# In a production setting, this would be configurable
-# llm = ChatOpenAI(model="gpt-4o", temperature=0.7)
-
 llm = ChatOllama(
-    model="deepseek-r1:latest", 
-    base_url="http://192.168.1.9:11434", 
-    temperature=0
+    model="gpt-oss:120b-cloud",
+    base_url="https://ollama.com"
 )
 
 def get_judicial_opinion(
@@ -29,38 +24,104 @@ def get_judicial_opinion(
 ) -> JudicialOpinion:
     """
     Helper function to invoke the LLM for a specific judge and criterion.
+    Uses .bind_tools() to force structured output via tool/function calling.
     """
-    structured_llm = llm.with_structured_output(JudicialOpinion)
+    # Bind the Pydantic model as a tool
+    llm_with_tools = llm.bind_tools([JudicialOpinion])
     
     prompt = ChatPromptTemplate.from_messages([
-        ("system", f"{judge_persona}\n\nYou must evaluate the provided evidence against the specific rubric criterion. "
-                   "Your output must be a structured JudicialOpinion."),
+        ("system", f"{judge_persona}\n\n"
+                   "SCORING SCALE (Stricly enforce this):\n"
+                   "5 = EXCELLENT: Fully meets all success patterns with robust implementation.\n"
+                   "4 = GOOD: Meets core requirements with minor missing polish.\n"
+                   "3 = FAIR: Partially meets requirements but has significant gaps.\n"
+                   "2 = POOR: Minimal effort, mostly matches failure patterns.\n"
+                   "1 = CRITICAL FAILURE: No evidence found or matches the failure pattern completely.\n\n"
+                   "You are an expert auditor. You MUST use the 'JudicialOpinion' tool to provide your evaluation. "
+                   "Examine the 'content' field of the evidence carefully for structural proof (e.g. parallel branches, reducers). "
+                   "Do not provide a text response; ONLY use the tool."),
         ("human", "Rubric Criterion: {criterion_name}\n"
                   "Success Pattern: {success_pattern}\n"
                   "Failure Pattern: {failure_pattern}\n\n"
                   "Forensic Evidence Collected:\n{evidence_text}\n\n"
-                  "Provide your score (1-5), your detailed argument, and cite the specific evidence used.")
+                  "Evaluate this criterion using the JudicialOpinion tool.")
     ])
     
     # Format evidence for the prompt
     evidence_text = ""
     for idx, e in enumerate(evidence_list):
-        status = "FOUND" if e.found else "NOT FOUND"
         evidence_text += f"Evidence [{idx}] ({e.location}): {e.rationale}\nContent snippet: {e.content}\n\n"
     
     if not evidence_text:
         evidence_text = "No specific forensic evidence was collected for this criterion."
 
+    # Create the chain
+    chain = prompt | llm_with_tools
+    
     # Invoke
-    chain = prompt | structured_llm
-    opinion = chain.invoke({
+    response = chain.invoke({
         "criterion_name": criterion["name"],
         "success_pattern": criterion["success_pattern"],
         "failure_pattern": criterion["failure_pattern"],
         "evidence_text": evidence_text
     })
     
-    # Ensure metadata is correct
+    # Extract and Coerce the tool call
+    if response.tool_calls:
+        tool_call = response.tool_calls[0]
+        args = tool_call["args"]
+        
+        # 1. Coerce Score (Clip to 1-5)
+        raw_score = args.get("score", 1)
+        try:
+            score = int(raw_score)
+            score = max(1, min(5, score))
+        except (ValueError, TypeError):
+            score = 1
+            
+        # 2. Coerce Judge Name
+        # The model might return "TechLead Auditor" or "The Prosecutor"
+        raw_judge = args.get("judge", persona_name)
+        judge = persona_name # Default to the intended persona
+        if "prosecutor" in str(raw_judge).lower():
+            judge = "Prosecutor"
+        elif "defense" in str(raw_judge).lower():
+            judge = "Defense"
+        elif "tech" in str(raw_judge).lower():
+            judge = "TechLead"
+
+        # 3. Coerce Cited Evidence (List[str])
+        raw_evidence = args.get("cited_evidence", [])
+        cited_evidence = []
+        if isinstance(raw_evidence, list):
+            for e in raw_evidence:
+                if isinstance(e, dict):
+                    # Extract a string from the dict if the model was too smart
+                    cited_evidence.append(str(e.get("content") or e.get("location") or str(e)))
+                else:
+                    cited_evidence.append(str(e))
+        else:
+            cited_evidence = [str(raw_evidence)]
+
+        opinion = JudicialOpinion(
+            judge=judge,
+            criterion_id=criterion["id"],
+            score=score,
+            argument=str(args.get("argument", "No argument provided.")),
+            cited_evidence=cited_evidence
+        )
+    else:
+        # Fallback if no tool call
+        print(f"Warning: No tool call generated by {persona_name}.")
+        opinion = JudicialOpinion(
+            judge=persona_name,
+            criterion_id=criterion["id"],
+            score=1,
+            argument=f"Error: Judge failed to provide a structured opinion. Output: {response.content[:100]}",
+            cited_evidence=[]
+        )
+    
+    # Final metadata check
     opinion.judge = persona_name
     opinion.criterion_id = criterion["id"]
     return opinion
