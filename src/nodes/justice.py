@@ -114,15 +114,22 @@ def chief_justice_node(state: AgentState) -> dict:
             md_file.write(f"### {res.dimension_name}\n")
             md_file.write(f"- **Score:** {res.final_score}/5\n")
             if res.dissent_summary:
-                md_file.write(f"- **Dissent:** {res.dissent_summary}\n")
-            md_file.write(f"- **Remediation:** {res.remediation}\n\n")
+                md_file.write(f"- **Dissent:** {res.dissent_summary}\n\n")
             
             md_file.write("#### Judicial Opinions\n")
             for op in res.judge_opinions:
                 md_file.write(f"- **{op.judge}:** (Score: {op.score}) {op.argument}\n")
+                if op.cited_evidence:
+                    md_file.write("  - **Cited Evidence:**\n")
+                    for cite in op.cited_evidence:
+                        md_file.write(f"    - `{cite}`\n")
             md_file.write("\n")
             
-        md_file.write(f"## Remediation Plan\n{report.remediation_plan}\n")
+        md_file.write(f"## Remediation Plan\n")
+        for res in report.criteria:
+            if res.final_score < 5:
+                md_file.write(f"### [{res.dimension_name}] Remediation\n")
+                md_file.write(f"{res.remediation}\n\n")
 
     print(f"--- Final report saved to {report_path} ---")
 
