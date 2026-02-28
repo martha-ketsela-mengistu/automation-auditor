@@ -50,7 +50,11 @@ def get_judicial_opinion(
     # Format evidence for the prompt
     evidence_text = ""
     for idx, e in enumerate(evidence_list):
-        evidence_text += f"Evidence [{idx}] ({e.location}): {e.rationale}\nContent snippet: {e.content}\n\n"
+        # Truncate content to avoid overwhelming context limits if necessary
+        content = e.content if e.content else "None"
+        if len(content) > 8000:
+            content = content[:8000] + "... [Truncated for Context Context]"
+        evidence_text += f"Evidence [{idx}] ({e.location}): {e.rationale}\nContent snippet: {content}\n\n"
     
     if not evidence_text:
         evidence_text = "No specific forensic evidence was collected for this criterion."
@@ -58,16 +62,29 @@ def get_judicial_opinion(
     # Create the chain
     chain = prompt | llm_with_tools
     
-    # Invoke
-    response = chain.invoke({
-        "criterion_name": criterion["name"],
-        "success_pattern": criterion["success_pattern"],
-        "failure_pattern": criterion["failure_pattern"],
-        "evidence_text": evidence_text
-    })
+    # Invoke with Retry Logic
+    max_retries = 2
+    response = None
+    last_error = ""
+
+    for attempt in range(max_retries + 1):
+        try:
+            response = chain.invoke({
+                "criterion_name": criterion["name"],
+                "success_pattern": criterion["success_pattern"],
+                "failure_pattern": criterion["failure_pattern"],
+                "evidence_text": evidence_text
+            })
+            if response:
+                break
+        except Exception as e:
+            last_error = str(e)
+            print(f"  [Attempt {attempt+1}] Judge {persona_name} encountered an error: {e}")
+            if attempt == max_retries:
+                print(f"  [CRITICAL] Judge {persona_name} failed after {max_retries} retries.")
     
     # Extract and Coerce the tool call
-    if response.tool_calls:
+    if response and response.tool_calls:
         tool_call = response.tool_calls[0]
         args = tool_call["args"]
         
