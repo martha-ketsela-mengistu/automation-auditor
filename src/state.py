@@ -79,3 +79,4 @@ class AgentState(TypedDict):
         List[JudicialOpinion], operator.add
     ]
     final_report: AuditReport
+    error: Optional[str] = None
