@@ -22,7 +22,7 @@ def repo_investigator_node(state: AgentState) -> dict:
                 Evidence(
                     goal="Verify commit progression",
                     found=len(history) > 0,
-                    content="\n".join(history[:10]),
+                    content="\n".join(history[:50]),
                     location="git log",
                     rationale=f"Found {len(history)} commits in the repository.",
                     confidence=1.0 if len(history) > 3 else 0.5
@@ -46,7 +46,7 @@ def repo_investigator_node(state: AgentState) -> dict:
                 Evidence(
                     goal="Detect Pydantic/TypedDict state with reducers",
                     found="AgentState" in state_code,
-                    content=state_code[:2000], # Provide enough context for the judge
+                    content=state_code[:10000], # Provide enough context for the judge
                     location="src/state.py",
                     rationale="Scanned repository and extracted the core state definition for judicial review.",
                     confidence=0.9
@@ -59,7 +59,7 @@ def repo_investigator_node(state: AgentState) -> dict:
                 Evidence(
                     goal="Detect StateGraph and parallel wiring",
                     found="StateGraph" in graph_code,
-                    content=graph_code[:2000],
+                    content=graph_code[:10000],
                     location="src/graph.py",
                     rationale="Extracted graph orchestration logic to verify parallel fan-out/fan-in patterns.",
                     confidence=0.8
@@ -67,22 +67,24 @@ def repo_investigator_node(state: AgentState) -> dict:
             ]
             
             # Verify Structured Output & Judicial Nuance
+
             judges_code = get_file_content("src/nodes/judges.py")
             evidences["structured_output_enforcement"] = [
                 Evidence(
-                    goal="Verify .bind_tools() and Pydantic validation",
-                    found=".bind_tools" in judges_code,
-                    content=judges_code[:2000],
+                    goal="Verify .with_structured_output() or .bind_tools() and Pydantic validation",
+                    found=".with_structured_output" in judges_code or ".bind_tools" in judges_code,
+                    content=judges_code[:10000],
                     location="src/nodes/judges.py",
                     rationale="Extracted judicial node logic to verify structured output enforcement.",
                     confidence=0.9
                 )
             ]
+
             evidences["judicial_nuance"] = [
                 Evidence(
                     goal="Verify distinct Prosecutor, Defense, and TechLead personas",
                     found=all(p in judges_code for p in ["Prosecutor", "Defense", "TechLead"]),
-                    content=judges_code[2000:4000], # Capture the persona definitions
+                    content=judges_code[:10000], # Capture the persona definitions
                     location="src/nodes/judges.py",
                     rationale="Extracted judge personas to verify dialectical separation.",
                     confidence=0.9
@@ -95,23 +97,70 @@ def repo_investigator_node(state: AgentState) -> dict:
                 Evidence(
                     goal="Verify deterministic Python rules (Security, Fact Supremacy)",
                     found="min(avg_score, 3.0)" in justice_code and "avg_score -= 0.5" in justice_code,
-                    content=justice_code[:2000],
+                    content=justice_code[:10000],
                     location="src/nodes/justice.py",
                     rationale="Extracted synthesis logic to verify deterministic governance rules.",
                     confidence=0.9
                 )
             ]
-        else:
-            evidences["git_forensic_analysis"] = [
+
+            # Verify Safe Tool Engineering (Plural Evidence)
+            # 1. Check Tool Implementation
+            tools_code = get_file_content("src/tools/repo_tools.py")
+            evidences["safe_tool_engineering"] = [
                 Evidence(
-                    goal="Clone Repository",
-                    found=False,
-                    location=repo_url,
-                    rationale="Failed to clone the repository.",
+                    goal="Verify subprocess usage over os.system",
+                    found="subprocess.run" in tools_code and "os.system" not in tools_code,
+                    content=tools_code[:5000],
+                    location="src/tools/repo_tools.py",
+                    rationale="Scanned tool logic for safe command execution patterns.",
+                    confidence=0.9
+                ),
+                Evidence(
+                    goal="Verify sandboxed environment (TemporaryDirectory)",
+                    # Check detectives.py itself since it implements the sandbox
+                    found="with tempfile.TemporaryDirectory()" in get_file_content("src/nodes/detectives.py"),
+                    content=get_file_content("src/nodes/detectives.py")[:2000],
+                    location="src/nodes/detectives.py",
+                    rationale="Verified that forensic operations are executed within a temporary sandbox.",
                     confidence=1.0
                 )
             ]
 
+            # Collect all repo files for cross-referencing in the aggregator
+            all_files = []
+            for root, _, files in os.walk(tmpdir):
+                for file in files:
+                    rel_path = os.path.relpath(os.path.join(root, file), tmpdir)
+                    all_files.append(rel_path.replace("\\", "/"))
+            
+            # Internal key for aggregator sync
+            evidences["_repo_file_list"] = [
+                Evidence(
+                    goal="Internal: Repo file list for accuracy check",
+                    found=True,
+                    content=",".join(all_files),
+                    location="repository root",
+                    rationale=f"Found {len(all_files)} files in the repository for cross-referencing.",
+                    confidence=1.0
+                )
+            ]
+        else:
+            return {
+                "error": f"Failed to clone repository: {repo_url}",
+                "evidences": {
+                    "git_forensic_analysis": [
+                        Evidence(
+                            goal="Clone Repository",
+                            found=False,
+                            location=repo_url,
+                            rationale="Failed to clone the repository.",
+                            confidence=1.0
+                        )
+                    ]
+                }
+            }
+            
     return {"evidences": evidences}
 
 
@@ -181,18 +230,48 @@ def vision_inspector_node(state: AgentState) -> dict:
         with tempfile.TemporaryDirectory() as tmpdir:
             images = extract_images_from_pdf(pdf_path, tmpdir)
             if images:
-                # Analyze the first image as a representative diagram
-                analysis = analyze_diagram(images[0])
-                evidences["swarm_visual"] = [
-                    Evidence(
-                        goal="Analyze architectural diagram",
-                        found=True,
-                        content=analysis["description"],
-                        location=images[0],
-                        rationale="Used multimodal analysis to verify graph structure in the diagram.",
-                        confidence=analysis["score"] / 5.0
+                all_vision_evidence = []
+                for i, img_path in enumerate(images):
+                    analysis = analyze_diagram(img_path)
+                    
+                    # 1. Classification Evidence
+                    all_vision_evidence.append(
+                        Evidence(
+                            goal=f"Classify diagram [{i}]",
+                            found=True,
+                            content=analysis["diagram_type"],
+                            location=img_path,
+                            rationale=f"Verified if diagram {i} is a LangGraph State Machine, Sequence, or Flowchart.",
+                            confidence=0.9
+                        )
                     )
-                ]
+                    
+                    # 2. Parallel Flow Evidence
+                    all_vision_evidence.append(
+                        Evidence(
+                            goal=f"Verify parallel split in diagram [{i}]",
+                            found=analysis["has_parallel_split"],
+                            content=analysis["description"],
+                            location=img_path,
+                            rationale="Checked for START -> [Detectives] -> Aggregation -> [Judges] -> Synthesis -> END flow.",
+                            confidence=0.9
+                        )
+                    )
+                    
+                    # 3. Pipeline Linearity Flag (Failure Pattern)
+                    if analysis["is_linear_pipeline"]:
+                        all_vision_evidence.append(
+                            Evidence(
+                                goal=f"Detect linear pipeline anomaly in diagram [{i}]",
+                                found=True,
+                                content="Misleading Architecture Visual",
+                                location=img_path,
+                                rationale="Diagram shows a simple linear pipeline which contradicts the parallel implementation.",
+                                confidence=1.0
+                            )
+                        )
+                
+                evidences["swarm_visual"] = all_vision_evidence
             else:
                 evidences["swarm_visual"] = [
                     Evidence(
